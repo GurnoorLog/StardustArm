@@ -1,0 +1,131 @@
+<mujoco model="stardance">
+  <compiler angle="radian" meshdir="meshes" autolimits="true" />
+
+  <option gravity="0 0 0" timestep="0.004" iterations="200" />
+
+  <default>
+    <geom type="mesh" condim="4" friction="0.5 0.005 0.0001" />
+    <joint damping="0.1" armature="0.01" stiffness="0" />
+  </default>
+
+  <asset>
+    <mesh file="base_link.STL" name="base_link" scale="1 1 1" />
+    <mesh file="link1.STL" name="link1" scale="1 1 1" />
+    <mesh file="link2.STL" name="link2" scale="1 1 1" />
+    <mesh file="link3.STL" name="link3" scale="1 1 1" />
+    <mesh file="link4.STL" name="link4" scale="1 1 1" />
+    <mesh file="link5.STL" name="link5" scale="1 1 1" />
+    <mesh file="link6.STL" name="link6" scale="1 1 1" />
+    <mesh file="gripper_base.STL" name="gripper_base" scale="1 1 1" />
+    <mesh file="finger.STL" name="finger" scale="1 1 1" />
+  </asset>
+
+  <worldbody>
+    <geom name="floor" type="plane" size="3 3 0.1" rgba="0.35 0.35 0.35 1" />
+
+    
+    <camera name="vision_cam" pos="0 0 1.2" euler="0 0 0" mode="fixed" />
+
+    
+    <body name="obstacle1" pos="0.15 0.05 0.10">
+      <geom name="obs1_geom" type="sphere" size="0.08" rgba="1 0.6 0 0.6" group="5" />
+      <inertial pos="0 0 0" mass="1.0" diaginertia="0.01 0.01 0.01" />
+    </body>
+    <body name="obstacle2" pos="-0.10 0.50 0.12">
+      <geom name="obs2_geom" type="sphere" size="0.07" rgba="1 0.6 0 0.6" group="5" />
+      <inertial pos="0 0 0" mass="1.0" diaginertia="0.01 0.01 0.01" />
+    </body>
+    <body name="obstacle3" pos="0.30 0.65 0.08">
+      <geom name="obs3_geom" type="sphere" size="0.06" rgba="1 0.6 0 0.6" group="5" />
+      <inertial pos="0 0 0" mass="1.0" diaginertia="0.01 0.01 0.01" />
+    </body>
+
+    
+    <body name="ball_primary" pos="0 0.3 0.10">
+      <joint name="ball_primary_free" type="free" />
+      <geom name="ball_primary_geom" type="sphere" size="0.06" rgba="1 0.2 0.2 1" />
+      <inertial pos="0 0 0" mass="0.3" diaginertia="0.001 0.001 0.001" />
+    </body>
+    <body name="ball_secondary" pos="-0.1 0.2 0.10">
+      <joint name="ball_secondary_free" type="free" />
+      <geom name="ball_secondary_geom" type="sphere" size="0.05" rgba="0.2 0.4 1 1" />
+      <inertial pos="0 0 0" mass="0.2" diaginertia="0.001 0.001 0.001" />
+    </body>
+
+    <body name="link1" pos="0 0 0.04">
+      <geom name="link1_vis" type="mesh" mesh="base_link" rgba="0 0.8 0 1" />
+      <geom name="link1_col" type="box" size="0.095 0.16245 0.0365" pos="0 -0.0675 0.0365" group="3" />
+      <inertial pos="0 0 0" mass="0.5" diaginertia="0.001 0.001 0.001" />
+
+      <body name="link2" pos="0 0 0.073">
+        <joint name="j1" type="hinge" axis="0 0 -1" range="-1.5708 1.5708" limited="true" />
+        <geom name="link2_vis" type="mesh" mesh="link1" rgba="0.8 0 0 1" />
+        <geom name="link2_col" type="box" size="0.1 0.075 0.1092" pos="0 0 0.0992" group="3" />
+        <inertial pos="0 0 0" mass="0.3" diaginertia="0.001 0.001 0.001" />
+
+        <body name="link3" pos="0.09 0 0.1335">
+          <joint name="j2" type="hinge" axis="-1 0 0" range="-1.5708 1.5708" limited="true" />
+          <geom name="link3_vis" type="mesh" mesh="link2" rgba="0 0 0.8 1" />
+          <geom name="link3_col" type="box" size="0.09 0.0528 0.1784" pos="-0.09 0 0.1254" group="3" />
+          <inertial pos="0 0 0" mass="0.3" diaginertia="0.001 0.001 0.001" />
+
+          <body name="link4" pos="-0.0344 0 0.26">
+            <joint name="j3" type="hinge" axis="-1 0 0" range="-1.5708 1.5708" limited="true" />
+            <geom name="link4_vis" type="mesh" mesh="link3" rgba="0 0.8 0 1" />
+            <geom name="link4_col" type="box" size="0.0525 0.0725 0.082" pos="-0.0525 0.0055 0.015" group="3" />
+            <inertial pos="0 0 0" mass="0.3" diaginertia="0.001 0.001 0.001" />
+
+            <body name="link5" pos="-0.0556 0.068 0">
+              <joint name="j4" type="hinge" axis="0 1 0" range="-1.5708 1.5708" limited="true" />
+              <geom name="link5_vis" type="mesh" mesh="link4" rgba="0.8 0 0 1" />
+              <geom name="link5_col" type="box" size="0.052 0.09 0.03" pos="0 0.09 0" group="3" />
+              <inertial pos="0 0 0" mass="0.2" diaginertia="0.001 0.001 0.001" />
+
+              <body name="link6" pos="0.046 0.15 0">
+                <joint name="j5" type="hinge" axis="-1 0 0" range="-1.5708 1.5708" limited="true" />
+                <geom name="link6_vis" type="mesh" mesh="link5" rgba="0 0.8 0 1" />
+                <geom name="link6_col" type="box" size="0.046 0.0387 0.035" pos="-0.046 0.0247 0" group="3" />
+                <inertial pos="0 0 0" mass="0.15" diaginertia="0.001 0.001 0.001" />
+
+                <body name="link7" pos="-0.046 0.0534 0">
+                  <joint name="j6" type="hinge" axis="0 1 0" range="-3.1415 3.1415" limited="true" />
+                  <geom name="link7_vis" type="mesh" mesh="link6" rgba="0 0 0.8 1" />
+                  <geom name="link7_col" type="box" size="0.035 0.009 0.03495" pos="0 0.009 0" group="3" />
+                  <inertial pos="0 0 0" mass="0.1" diaginertia="0.001 0.001 0.001" />
+
+                  <body name="gripper_base" pos="-0.01 0.1085 0" euler="-1.5708 0 0">
+                    <geom name="gripper_base_vis" type="mesh" mesh="gripper_base" rgba="0 0 0.8 1" />
+                    <geom name="gripper_base_col" type="box" size="0.05 0.0543 0.05525" pos="0.02 0.0118 -0.0352" group="3" />
+                    <inertial pos="0 0 0" mass="0.1" diaginertia="0.001 0.001 0.001" />
+
+                    <body name="finger" pos="0 0 0" euler="1.5708 0 0">
+                      <joint name="joint_finger" type="slide" axis="1 0 0" range="0 0.037" limited="true" />
+                      <geom name="finger_vis" type="mesh" mesh="finger" rgba="0 0 0.8 1" />
+                      <geom name="finger_col" type="box" size="0.03805 0.0374 0.02" pos="0.005 -0.0174 0" group="3" />
+                      <inertial pos="0 0 0" mass="0.05" diaginertia="0.001 0.001 0.001" />
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <equality>
+    <weld name="grab_weld_primary" body1="gripper_base" body2="ball_primary" active="false" solref="0.05 0.6" />
+    <weld name="grab_weld_secondary" body1="gripper_base" body2="ball_secondary" active="false" solref="0.05 0.6" />
+  </equality>
+
+  <actuator>
+    <position name="j1_ctrl" joint="j1" kp="8.0" kv="2.0" forcerange="-10 10" />
+    <position name="j2_ctrl" joint="j2" kp="8.0" kv="2.0" forcerange="-10 10" />
+    <position name="j3_ctrl" joint="j3" kp="8.0" kv="2.0" forcerange="-10 10" />
+    <position name="j4_ctrl" joint="j4" kp="8.0" kv="2.0" forcerange="-10 10" />
+    <position name="j5_ctrl" joint="j5" kp="8.0" kv="2.0" forcerange="-10 10" />
+    <position name="j6_ctrl" joint="j6" kp="8.0" kv="2.0" forcerange="-10 10" />
+    <position name="finger_ctrl" joint="joint_finger" kp="4.0" kv="1.0" forcerange="-2 2" />
+  </actuator>
+</mujoco>

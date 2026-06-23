@@ -1,0 +1,81 @@
+{
+  "strategy_insights": {
+    "best_joint": 1,
+    "avg_success_delta": 0.015171301386140488,
+    "avg_failed_delta": -0.07558334513680436,
+    "common_opening": [
+      0,
+      5,
+      5,
+      5,
+      5
+    ],
+    "avg_steps_to_success": 186.75,
+    "fastest_success_steps": 24,
+    "fastest_success_reward": -118.03136114124116,
+    "num_success_missions": 20,
+    "num_failed_missions": 51
+  },
+  "top_episodes": [
+    {
+      "episode_id": 23,
+      "final_reward": 246002.3810407875,
+      "total_steps": 500,
+      "outcome": "SUCCESS"
+    },
+    {
+      "episode_id": 17,
+      "final_reward": 128350.46765110033,
+      "total_steps": 330,
+      "outcome": "SUCCESS"
+    },
+    {
+      "episode_id": 22,
+      "final_reward": 72002.38103850442,
+      "total_steps": 153,
+      "outcome": "SUCCESS"
+    },
+    {
+      "episode_id": 21,
+      "final_reward": 45776.1529442788,
+      "total_steps": 131,
+      "outcome": "FAILURE"
+    },
+    {
+      "episode_id": 18,
+      "final_reward": 23791.87660085769,
+      "total_steps": 80,
+      "outcome": "FAILURE"
+    },
+    {
+      "episode_id": 20,
+      "final_reward": 18896.953604043043,
+      "total_steps": 61,
+      "outcome": "FAILURE"
+    },
+    {
+      "episode_id": 16,
+      "final_reward": 2937.311455856622,
+      "total_steps": 25,
+      "outcome": "SUCCESS"
+    },
+    {
+      "episode_id": 15,
+      "final_reward": 2883.5224798749146,
+      "total_steps": 29,
+      "outcome": "SUCCESS"
+    },
+    {
+      "episode_id": 70,
+      "final_reward": 1005.7725684143552,
+      "total_steps": 317,
+      "outcome": "SUCCESS"
+    },
+    {
+      "episode_id": 66,
+      "final_reward": 1003.5334141061664,
+      "total_steps": 176,
+      "outcome": "SUCCESS"
+    }
+  ]
+}
