@@ -222,10 +222,11 @@ def run_episode(progress=gr.Progress()):
     mujoco.mj_forward(model, data)
 
     renderer = mujoco.Renderer(model, height=480, width=640)
-    renderer.camera.distance = 3.5
-    renderer.camera.azimuth = 45
-    renderer.camera.elevation = 30
-    renderer.camera.lookat[:] = [0.0, 0.0, 0.3]
+    camera = mujoco.MjvCamera()
+    camera.distance = 3.5
+    camera.azimuth = 45
+    camera.elevation = 30
+    camera.lookat[:] = [0.0, 0.0, 0.3]
 
     frames = []
 
@@ -363,7 +364,7 @@ def run_episode(progress=gr.Progress()):
         elif state == STATE_IDLE:
             env.step()
 
-        renderer.update_scene(data)
+        renderer.update_scene(data, camera)
         frame = renderer.render()
         frames.append(frame)
 
