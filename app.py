@@ -457,11 +457,12 @@ with gr.Blocks(
 
 if __name__ == "__main__":
     import uvicorn
+    _orig_init = uvicorn.Config.__init__
+    def _proxy_init(self, app, **kwargs):
+        kwargs.setdefault("proxy_headers", True)
+        kwargs.setdefault("forwarded_allow_ips", "*")
+        _orig_init(self, app, **kwargs)
+    uvicorn.Config.__init__ = _proxy_init
+
     port = int(os.environ.get("PORT", "7860"))
-    uvicorn.run(
-        demo.app,
-        host="0.0.0.0",
-        port=port,
-        proxy_headers=True,
-        forwarded_allow_ips="*",
-    )
+    demo.launch(server_name="0.0.0.0", server_port=port, theme=gr.themes.Soft())
