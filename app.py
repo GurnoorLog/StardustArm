@@ -462,7 +462,14 @@ class _FixScheme:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             scope["scheme"] = "https"
-        await self.app(scope, receive, send)
+            original_send = send
+            async def _send(msg):
+                if msg["type"] == "http.response.start":
+                    msg["headers"] = list(msg.get("headers", [])) + [(b"X-Scheme-Fix", b"active")]
+                await original_send(msg)
+            await self.app(scope, receive, _send)
+        else:
+            await self.app(scope, receive, send)
 
 _orig_start = gradio.http_server.start_server
 def _patched_start(app, server_name=None, server_port=None,
