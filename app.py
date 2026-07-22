@@ -455,7 +455,7 @@ with gr.Blocks(
         outputs=[video, status],
     )
 
-class TrustProxyScheme:
+class _TrustProxy:
     def __init__(self, app):
         self.app = app
     async def __call__(self, scope, receive, send):
@@ -466,7 +466,7 @@ class TrustProxyScheme:
                     break
         await self.app(scope, receive, send)
 
-demo.app.add_middleware(TrustProxyScheme)
+demo.app = _TrustProxy(demo.app)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "7860"))
