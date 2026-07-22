@@ -456,13 +456,24 @@ with gr.Blocks(
     )
 
 import gradio.http_server
+import sys
 class _FixScheme:
     def __init__(self, app):
         self.app = app
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             scope["scheme"] = "https"
-        await self.app(scope, receive, send)
+            # Add debug marker
+            original_send = send
+            async def _send(msg):
+                if msg["type"] == "http.response.start":
+                    hdrs = [h for h in msg.get("headers", [])]
+                    hdrs.append((b"X-Debug", b"FixScheme-active"))
+                    msg["headers"] = hdrs
+                await original_send(msg)
+            await self.app(scope, receive, _send)
+        else:
+            await self.app(scope, receive, send)
 
 _orig_start = gradio.http_server.start_server
 def _patched_start(app, server_name=None, server_port=None,
