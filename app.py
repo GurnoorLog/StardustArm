@@ -420,7 +420,6 @@ def run_episode(progress=gr.Progress()):
 
 with gr.Blocks(
     title="Stardance — NASA On-Orbit Servicing Simulator",
-    theme=gr.themes.Soft(),
 ) as demo:
     gr.HTML("""
     <div style="text-align:center; padding:1rem">
@@ -433,8 +432,7 @@ with gr.Blocks(
 
     with gr.Row():
         with gr.Column(scale=3):
-            video = gr.Video(label="Simulation", autoplay=True,
-                             show_download_button=True)
+            video = gr.Video(label="Simulation", autoplay=True)
         with gr.Column(scale=1):
             status = gr.Textbox(label="Status", value="Ready")
             start_btn = gr.Button("▶ Start Episode", variant="primary",
@@ -459,4 +457,4 @@ with gr.Blocks(
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "7860"))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    demo.launch(server_name="0.0.0.0", server_port=port, theme=gr.themes.Soft())
