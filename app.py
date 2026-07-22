@@ -254,7 +254,7 @@ def run_episode(progress=gr.Progress()):
     env = SimEnv(model, data)
     mujoco.mj_forward(model, data)
 
-    renderer = mujoco.Renderer(model, height=480, width=640)
+    renderer = mujoco.Renderer(model, height=320, width=480)
     camera = mujoco.MjvCamera()
     camera.distance = 3.5
     camera.azimuth = 45
@@ -262,6 +262,7 @@ def run_episode(progress=gr.Progress()):
     camera.lookat[:] = [0.0, 0.0, 0.3]
 
     frames = []
+    skip_frame_counter = 0
 
     env.set_finger_target(config.FINGER_OPEN)
     env.reset_arm()
@@ -400,9 +401,11 @@ def run_episode(progress=gr.Progress()):
         elif state == STATE_IDLE:
             env.step()
 
+        skip_frame_counter += 1
         renderer.update_scene(data, camera)
         frame = renderer.render()
-        frames.append(frame)
+        if skip_frame_counter % 2 == 0:
+            frames.append(frame)
         env.freeze_balls(
             exclude=current_target_name if state in (STATE_GRABBED, STATE_LIFTING, STATE_SWINGING) else None
         )
