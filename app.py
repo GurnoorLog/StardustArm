@@ -465,22 +465,7 @@ class _FixScheme:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             scope["scheme"] = "https"
-            started = False
-            original_send = send
-            async def _send(msg):
-                nonlocal started
-                if msg["type"] == "http.response.start":
-                    started = True
-                    await original_send(msg)
-                elif msg["type"] == "http.response.body":
-                    body = msg.get("body", b"")
-                    modified = body.replace(b"http://", b"https://")
-                    if len(modified) != len(body):
-                        msg["body"] = modified
-                    await original_send(msg)
-            await self.app(scope, receive, _send)
-        else:
-            await self.app(scope, receive, send)
+        await self.app(scope, receive, send)
 
 _orig_start = gradio.http_server.start_server
 def _patched_start(app, server_name=None, server_port=None,
