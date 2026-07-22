@@ -456,24 +456,28 @@ with gr.Blocks(
     )
 
 import gradio.http_server
-import sys
 class _FixScheme:
     def __init__(self, app):
         self.app = app
+        import sys; print("[_FixScheme] wrapping app", file=sys.stderr)
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
+            old = scope.get("scheme", "?")
             scope["scheme"] = "https"
-            # Add debug marker
-            original_send = send
-            async def _send(msg):
-                if msg["type"] == "http.response.start":
-                    hdrs = [h for h in msg.get("headers", [])]
-                    hdrs.append((b"X-Debug", b"FixScheme-active"))
-                    msg["headers"] = hdrs
-                await original_send(msg)
-            await self.app(scope, receive, _send)
-        else:
-            await self.app(scope, receive, send)
+            import sys; print(f"[_FixScheme] scheme {old}->https host={scope.get('headers', [])}", file=sys.stderr)
+        await self.app(scope, receive, send)
+
+_orig_start = gradio.http_server.start_server
+def _patched_start(app, server_name=None, server_port=None,
+                    ssl_keyfile=None, ssl_certfile=None,
+                    ssl_keyfile_password=None):
+    import sys; print("[_patched_start] called", file=sys.stderr)
+    return _orig_start(_FixScheme(app), server_name=server_name,
+                       server_port=server_port, ssl_keyfile=ssl_keyfile,
+                       ssl_certfile=ssl_certfile,
+                       ssl_keyfile_password=ssl_keyfile_password)
+gradio.http_server.start_server = _patched_start
+print("[app.py] patched start_server", flush=True)
 
 _orig_start = gradio.http_server.start_server
 def _patched_start(app, server_name=None, server_port=None,
