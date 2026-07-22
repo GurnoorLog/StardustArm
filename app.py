@@ -455,6 +455,15 @@ with gr.Blocks(
         outputs=[video, status],
     )
 
+from starlette.middleware.base import BaseHTTPMiddleware
+class _UpgradeHTTPS(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = "upgrade-insecure-requests"
+        return response
+
+demo.app.add_middleware(_UpgradeHTTPS)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "7860"))
     demo.launch(server_name="0.0.0.0", server_port=port, theme=gr.themes.Soft())
