@@ -427,6 +427,9 @@ with gr.Blocks(
         <p style="font-size:1.1rem; color:#666">
             NASA On-Orbit Servicing Simulator — MuJoCo Robotic Arm
         </p>
+        <p style="font-size:0.9rem; color:#999; font-style:italic">
+            ⚠️ may take a while — low spec container 😭
+        </p>
     </div>
     """)
 
