@@ -465,6 +465,9 @@ class _FixScheme:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             scope["scheme"] = "https"
+            hdrs = [(k, v) for k, v in scope.get("headers", []) if k.lower() != b"x-forwarded-proto"]
+            hdrs.append((b"x-forwarded-proto", b"https"))
+            scope["headers"] = hdrs
         await self.app(scope, receive, send)
 
 _orig_start = gradio.http_server.start_server
