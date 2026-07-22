@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 os.environ["MUJOCO_GL"] = "egl"
 import gradio as gr
 import numpy as np
