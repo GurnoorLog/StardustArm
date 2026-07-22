@@ -455,14 +455,19 @@ with gr.Blocks(
         outputs=[video, status],
     )
 
-if __name__ == "__main__":
-    import uvicorn
-    _orig_init = uvicorn.Config.__init__
-    def _proxy_init(self, app, **kwargs):
-        kwargs.setdefault("proxy_headers", True)
-        kwargs.setdefault("forwarded_allow_ips", "*")
-        _orig_init(self, app, **kwargs)
-    uvicorn.Config.__init__ = _proxy_init
+class TrustProxyScheme:
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            for name, value in scope.get("headers") or []:
+                if name == b"x-forwarded-proto" and value == b"https":
+                    scope["scheme"] = "https"
+                    break
+        await self.app(scope, receive, send)
 
+demo.app.add_middleware(TrustProxyScheme)
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", "7860"))
     demo.launch(server_name="0.0.0.0", server_port=port, theme=gr.themes.Soft())
