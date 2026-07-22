@@ -455,14 +455,27 @@ with gr.Blocks(
         outputs=[video, status],
     )
 
-from starlette.middleware.base import BaseHTTPMiddleware
-class _UpgradeHTTPS(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        response.headers["Content-Security-Policy"] = "upgrade-insecure-requests"
-        return response
+import gradio.http_server
+class _FixScheme:
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            for name, value in scope.get("headers") or []:
+                if name == b"x-forwarded-proto" and value == b"https":
+                    scope["scheme"] = "https"
+                    break
+        await self.app(scope, receive, send)
 
-demo.app.add_middleware(_UpgradeHTTPS)
+_orig_start = gradio.http_server.start_server
+def _patched_start(app, server_name=None, server_port=None,
+                    ssl_keyfile=None, ssl_certfile=None,
+                    ssl_keyfile_password=None):
+    return _orig_start(_FixScheme(app), server_name=server_name,
+                       server_port=server_port, ssl_keyfile=ssl_keyfile,
+                       ssl_certfile=ssl_certfile,
+                       ssl_keyfile_password=ssl_keyfile_password)
+gradio.http_server.start_server = _patched_start
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "7860"))
