@@ -1,8 +1,9 @@
-import gradio as gr
-import mujoco
-import numpy as np
 import os
 import sys
+os.environ["MUJOCO_GL"] = "egl"
+import gradio as gr
+import numpy as np
+import mujoco
 import tempfile
 from pathlib import Path
 
