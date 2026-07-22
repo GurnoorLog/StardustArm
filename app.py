@@ -461,11 +461,18 @@ class _FixScheme:
         self.app = app
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            for name, value in scope.get("headers") or []:
-                if name == b"x-forwarded-proto" and value == b"https":
-                    scope["scheme"] = "https"
-                    break
-        await self.app(scope, receive, send)
+            scope["scheme"] = "https"
+            original_send = send
+            async def send_wrapper(message):
+                if message["type"] == "http.response.start":
+                    hdrs = [(k, v.replace(b'http://', b'https://') if k == b"location" else v) for k, v in message.get("headers", [])]
+                    message["headers"] = hdrs
+                elif message["type"] == "http.response.body":
+                    message["body"] = message.get("body", b"").replace(b'http://stardustarm.gurnoor.hackclub.app/', b'https://stardustarm.gurnoor.hackclub.app/')
+                await original_send(message)
+            await self.app(scope, receive, send_wrapper)
+        else:
+            await self.app(scope, receive, send)
 
 _orig_start = gradio.http_server.start_server
 def _patched_start(app, server_name=None, server_port=None,
