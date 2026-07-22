@@ -462,11 +462,26 @@ class _FixScheme:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             scope["scheme"] = "https"
+            start_msg = None
             original_send = send
             async def _send(msg):
+                nonlocal start_msg
                 if msg["type"] == "http.response.start":
-                    msg["headers"] = list(msg.get("headers", [])) + [(b"X-Scheme-Fix", b"active")]
-                await original_send(msg)
+                    start_msg = msg
+                elif msg["type"] == "http.response.body":
+                    body = msg.get("body", b"")
+                    modified = body.replace(b"http://", b"https://")
+                    if len(modified) != len(body):
+                        # Update Content-Length
+                        hdrs = [(k, v) for k, v in start_msg.get("headers", []) if k.lower() != b"content-length"]
+                        cl = str(len(modified)).encode()
+                        hdrs.append((b"content-length", cl))
+                        start_msg["headers"] = hdrs
+                        await original_send(start_msg)
+                        msg["body"] = modified
+                    else:
+                        await original_send(start_msg)
+                    await original_send(msg)
             await self.app(scope, receive, _send)
         else:
             await self.app(scope, receive, send)
