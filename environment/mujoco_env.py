@@ -434,6 +434,24 @@ class MuJoCoEnv:
         # cannot slam into the floor and cause QACC instability. Collisions are
         # restored at the start of the next episode via reset_ball_geom_collisions().
 
+    def sync_grabbed_ball(self, ball_name):
+        eq_id = self._grab_eq_ids.get(ball_name)
+        if eq_id is None or self.data.eq_active[eq_id] != 1:
+            return
+        g_id = self._gripper_body_id
+        for i in range(self.model.njnt):
+            n = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, i)
+            if n == f"{ball_name}_free":
+                q_adr = self.model.jnt_qposadr[i]
+                v_adr = self.model.jnt_dofadr[i]
+                self.data.qpos[q_adr:q_adr+3] = self.data.xpos[g_id]
+                quat_g = np.zeros(4)
+                mujoco.mju_mat2Quat(quat_g, self.data.xmat[g_id].flatten())
+                self.data.qpos[q_adr+3:q_adr+7] = quat_g
+                self.data.qvel[v_adr:v_adr+6] = 0.0
+                break
+        mujoco.mj_forward(self.model, self.data)
+
     def reset_ball_geom_collisions(self):
         """Restore physics collisions on all target balls. Call at episode start."""
         for ball_name, gid in self._ball_geom_ids.items():
@@ -513,6 +531,17 @@ class MuJoCoEnv:
                 self.data.qvel[self.model.jnt_dofadr[i]:
                                self.model.jnt_dofadr[i]+3] = 0.0
                 return
+
+    def freeze_balls(self, exclude=None):
+        for bname in self._ball_bodies:
+            if bname == exclude:
+                continue
+            for i in range(self.model.njnt):
+                n = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, i)
+                if n == f"{bname}_free":
+                    v_adr = self.model.jnt_dofadr[i]
+                    self.data.qvel[v_adr:v_adr+6] = 0.0
+                    break
 
     def get_all_ball_positions_with_priority(self):
         results = []

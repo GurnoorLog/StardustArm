@@ -65,7 +65,8 @@ def is_action_safe(angles, action, scale):
     return True
 
 
-def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False):
+def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False,
+             grabbed_ball=None):
     ee = np.array(env.get_ee_pos(), dtype=float)
     tgt = np.array(target_pos, dtype=float)
     direction = tgt - ee
@@ -98,6 +99,8 @@ def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False)
         if j_idx < env.model.nu - 1:
             env.data.qpos[adr] = joint_config[adr]
             env.set_joint_target(j_idx, joint_config[adr])
+    if grabbed_ball:
+        env.sync_grabbed_ball(grabbed_ball)
 
 
 def compute_joint_target(env, target_pos):
@@ -498,19 +501,8 @@ def main():
                     wp = np.array(lift_traj[lift_idx], dtype=float)
                     lift_idx += 1
                     obs_pos = env.get_obstacle_positions()
-                    ik_reach(env, wp, obstacle_pos=obs_pos, avoid=bool(obs_pos))
-                    env.set_finger_target(FINGER_CLOSED)
-                    env.step()
-                    state = STATE_LIFTING
-                    status = f"LIFTING ({lift_idx}/{len(lift_traj)})"
-                else:
-                    lift_active = False
-                    # Start swing
-                    swing_step = 0
-                    angles = env.get_joint_angles()
-                    swing_j1_center = angles[0]
-                    state = STATE_SWINGING
-                    print(f"[SWING] Displaying {current_target_name}!")
+                    ik_reach(env, wp, obstacle_pos=obs_pos, avoid=bool(obs_pos),
+                             grabbed_ball=current_target_name)
 
             elif state == STATE_LIFTING:
                 env.set_finger_target(FINGER_CLOSED)
@@ -518,7 +510,8 @@ def main():
                     wp = np.array(lift_traj[lift_idx], dtype=float)
                     lift_idx += 1
                     obs_pos = env.get_obstacle_positions()
-                    ik_reach(env, wp, obstacle_pos=obs_pos, avoid=bool(obs_pos))
+                    ik_reach(env, wp, obstacle_pos=obs_pos, avoid=bool(obs_pos),
+                             grabbed_ball=current_target_name)
                     env.step()
                     status = f"LIFTING ({lift_idx}/{len(lift_traj)})"
                 else:
@@ -535,6 +528,8 @@ def main():
                 env.set_joint_target(0, float(angle))
                 env.set_finger_target(FINGER_CLOSED)
                 env.step()
+                if grabbed:
+                    env.sync_grabbed_ball(current_target_name)
                 status = f"SWINGING {current_target_name} ({swing_step}/{SWING_STEPS})"
 
                 if swing_step >= SWING_STEPS:
@@ -565,6 +560,7 @@ def main():
                 status = "MISSION COMPLETE" if success else "FAILED"
 
             env.render()
+            env.freeze_balls(exclude=current_target_name if grabbed else None)
             env.poll_keys()
 
     except KeyboardInterrupt:

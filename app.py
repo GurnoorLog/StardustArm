@@ -186,13 +186,42 @@ class SimEnv:
             return
         self.data.eq_active[eq_id] = 0
 
+    def sync_grabbed_ball(self, ball_name):
+        eq_id = self._grab_eq_ids.get(ball_name)
+        if eq_id is None or self.data.eq_active[eq_id] != 1:
+            return
+        for i in range(self.model.njnt):
+            n = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, i)
+            if n == f"{ball_name}_free":
+                q_adr = self.model.jnt_qposadr[i]
+                v_adr = self.model.jnt_dofadr[i]
+                self.data.qpos[q_adr:q_adr+3] = self.data.xpos[self._gripper_id]
+                quat_g = np.zeros(4)
+                mujoco.mju_mat2Quat(quat_g, self.data.xmat[self._gripper_id].flatten())
+                self.data.qpos[q_adr+3:q_adr+7] = quat_g
+                self.data.qvel[v_adr:v_adr+6] = 0.0
+                break
+        mujoco.mj_forward(self.model, self.data)
+
+    def freeze_balls(self, exclude=None):
+        for bname in self._ball_ids:
+            if bname == exclude:
+                continue
+            for i in range(self.model.njnt):
+                n = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_JOINT, i)
+                if n == f"{bname}_free":
+                    v_adr = self.model.jnt_dofadr[i]
+                    self.data.qvel[v_adr:v_adr+6] = 0.0
+                    break
+
     def reset_ball_geom_collisions(self):
         for gid in self._ball_geom_ids.values():
             self.model.geom_contype[gid] = 1
             self.model.geom_conaffinity[gid] = 1
 
 
-def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False):
+def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False,
+             grabbed_ball=None):
     ee = np.array(env.get_ee_pos(), dtype=float)
     tgt = np.array(target_pos, dtype=float)
     direction = tgt - ee
@@ -213,6 +242,8 @@ def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False)
         if j_idx < env.model.nu - 1:
             env.data.qpos[adr] = joint_config[adr]
             env.set_joint_target(j_idx, joint_config[adr])
+    if grabbed_ball:
+        env.sync_grabbed_ball(grabbed_ball)
 
 
 def run_episode(progress=gr.Progress()):
@@ -330,7 +361,8 @@ def run_episode(progress=gr.Progress()):
                 lift_idx += 1
                 ik_reach(env, wp,
                          obstacle_pos=env.get_obstacle_positions(),
-                         avoid=bool(env.get_obstacle_positions()))
+                         avoid=bool(env.get_obstacle_positions()),
+                         grabbed_ball=current_target_name)
                 env.set_finger_target(config.FINGER_CLOSED)
                 env.step()
                 state = STATE_LIFTING
@@ -342,7 +374,8 @@ def run_episode(progress=gr.Progress()):
                 lift_idx += 1
                 ik_reach(env, wp,
                          obstacle_pos=env.get_obstacle_positions(),
-                         avoid=bool(env.get_obstacle_positions()))
+                         avoid=bool(env.get_obstacle_positions()),
+                         grabbed_ball=current_target_name)
                 env.step()
             else:
                 swing_step = 0
@@ -356,6 +389,7 @@ def run_episode(progress=gr.Progress()):
             env.set_joint_target(0, float(angle))
             env.set_finger_target(config.FINGER_CLOSED)
             env.step()
+            env.sync_grabbed_ball(current_target_name)
             if swing_step >= swing_steps:
                 env.release_ball(current_target_name)
                 env.set_finger_target(config.FINGER_OPEN)
@@ -367,6 +401,9 @@ def run_episode(progress=gr.Progress()):
         renderer.update_scene(data, camera)
         frame = renderer.render()
         frames.append(frame)
+        env.freeze_balls(
+            exclude=current_target_name if state in (STATE_GRABBED, STATE_LIFTING, STATE_SWINGING) else None
+        )
 
         progress((step_count % (max_steps or 1)) / max(max_steps, 1),
                  f"Step {step_count}/{max_steps} — {state}")
@@ -421,5 +458,5 @@ with gr.Blocks(
     )
 
 if __name__ == "__main__":
-    import time
-    demo.launch(server_name="0.0.0.0")
+    port = int(os.environ.get("PORT", "7860"))
+    demo.launch(server_name="0.0.0.0", server_port=port)

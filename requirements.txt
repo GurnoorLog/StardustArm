@@ -2,4 +2,3 @@ gradio>=4.0
 mujoco>=3.0
 numpy
 imageio[ffmpeg]
-glfw
