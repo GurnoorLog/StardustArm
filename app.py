@@ -455,18 +455,21 @@ with gr.Blocks(
         outputs=[video, status],
     )
 
-class _TrustProxy:
-    def __init__(self, app):
-        self.app = app
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            for name, value in scope.get("headers") or []:
-                if name == b"x-forwarded-proto" and value == b"https":
-                    scope["scheme"] = "https"
-                    break
-        await self.app(scope, receive, send)
-
-demo.app = _TrustProxy(demo.app)
+import gradio.http_server
+_orig_start = gradio.http_server.start_server
+def _start_with_proxy(app, *args, **kwargs):
+    class _Wrap:
+        def __init__(self, a):
+            self.a = a
+        async def __call__(self, scope, receive, send):
+            if scope["type"] == "http":
+                for name, value in scope.get("headers") or []:
+                    if name == b"x-forwarded-proto" and value == b"https":
+                        scope["scheme"] = "https"
+                        break
+            await self.a(scope, receive, send)
+    return _orig_start(_Wrap(app), *args, **kwargs)
+gradio.http_server.start_server = _start_with_proxy
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "7860"))
