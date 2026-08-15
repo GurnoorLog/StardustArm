@@ -1,6 +1,6 @@
 # StardustArm
 
-yo this is my project for the nasa on-orbit servicing challenge thing. basically a robot arm in space that learns to grab floating balls by itself. no hand-coded bs, just pure reinforcement learning.
+yo this is my project for the nasa on-orbit servicing challenge thing. basically a robot arm in space that learns to grab floating balls by itself. no hand-coded bs, just pure reinforcement learning. i still need to add the feuture of letting the user to place the ball..... but u can code it in if u git clone it......it's only v1 rn..more updates will be coming.......stay tuned
 
 ## what it do
 
