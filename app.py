@@ -436,10 +436,10 @@ with gr.Blocks(
             ⚠️ may take a while — low spec container 😭
         </p>
         <p style="font-size:0.85rem; color:#aaa; max-width:560px; margin:0.5rem auto 0; line-height:1.4">
-            🛠️ <b>This is only a demo (v1).</b> You can't place balls yourself yet — that's coming
-            in future updates, sorry! This just gives you a taste of how it works.
-            If you want to really test it, git clone the project and follow the README.
-            Pretty proud of it, hope you like it 🙂
+            🛠️ <b>This is only a demo (v1).</b> It just renders a video of the model running
+            in the Hack Club container — you can't control it or place balls yourself yet.
+            That's coming in future updates, stay tuned! If you want to really test it,
+            git clone the project and follow the README. Pretty proud of it, hope you like it 🙂
         </p>
     </div>
     """)
