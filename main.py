@@ -131,11 +131,9 @@ def start_episode(env, memory, rl_active):
     memory.clear()
     env.set_finger_target(FINGER_OPEN)
     env.reset_arm()
-    # Restore ball collisions first (they may have been disabled during previous grab)
-    env.reset_ball_geom_collisions()
-    # Deactivate any active grab welds from the previous episode
+    env.reset_ball_geom_collisions()  # a grab from last episode may have disabled these
     for ball_name in env.get_ball_names():
-        env.release_ball(ball_name)
+        env.release_ball(ball_name)  # clear old weld + target
     env.set_ball_pos(TARGET_POS, "ball_primary")
     env.set_ball_pos([-0.1, 0.2, 0.10], "ball_secondary")
     if rl_active:
@@ -252,7 +250,7 @@ def main():
 
     try:
         while env.is_running():
-            # --- Terminal Enter detection (thread-based, no GLFW focus needed) ---
+            # enter to advance while paused, no GLFW focus needed
             if paused and enter_pressed.is_set():
                 enter_pressed.clear()
                 paused = False
@@ -274,7 +272,7 @@ def main():
                 print(f"[MAIN] === Episode {episode_num} ===")
                 print(f"[MAIN] Targets: {target_order}")
 
-            # --- GLFW key handlers ---
+            # pause / resume / reset hotkeys
             if env.is_key_triggered(KEY_ENTER):
                 if paused:
                     paused = False
@@ -326,7 +324,7 @@ def main():
             if env.is_key_pressed(KEY_ESCAPE):
                 break
 
-            # --- Get current target position ---
+            # vision can override the target
             if use_vision:
                 detected = vision.detect_balls()
                 if detected:
@@ -339,8 +337,6 @@ def main():
             if floating:
                 env.stabilize_base()
 
-            # === STATE MACHINE ===
-
             if paused or state == STATE_IDLE:
                 env.step()
                 status = "IDLE"
@@ -350,7 +346,7 @@ def main():
                 ee = env.get_ee_pos()
                 curr_dist = float(np.linalg.norm(np.array(ee) - target_pos))
 
-                # On first REACHING step for a new target, plan joint-space trajectory
+                # plan a joint-space trajectory on entering REACHING for a fresh target
                 if not use_jt and jt_target is None and not jt_failed:
                     current_j = np.array(env.get_joint_angles())
                     jt_config_raw, jt_ok = compute_joint_target(env, target_pos)

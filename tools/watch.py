@@ -1,10 +1,10 @@
 import sys, os, glob, json, time
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from spaceship_env import SpaceshipArmEnv
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from environment.spaceship_env import SpaceshipArmEnv
 from stable_baselines3 import SAC
 from gymnasium import spaces
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNS_DIR = os.path.join(BASE, "training_runs")
 
 def list_runs():

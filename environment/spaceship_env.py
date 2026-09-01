@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import uuid
 
 SCENE_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "assets", "robots", "mephi_arm", "scene.xml"
 )
 
@@ -36,7 +36,7 @@ class SpaceshipArmEnv(gym.Env):
         self.data = mujoco.MjData(self.model)
         self._cache_ids()
 
-        # HER-compatible Dict observation
+        # Dict obs (HER needs goal+achieved slots)
         obs_dim = 6 + 6 + 3 + 1 + 7  # joints + vel + ee + finger + ctrl
         self.observation_space = spaces.Dict(dict(
             observation=spaces.Box(-np.inf, np.inf, shape=(obs_dim,), dtype=np.float32),

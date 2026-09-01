@@ -278,13 +278,10 @@ def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False,
 
 
 class Scene:
-    """Shared simulation state: one model/data/env, guarded by a lock.
-
-    Rendering is pinned to a single worker thread because MuJoCo's EGL
-    context can only be current on one thread at a time (Gradio uses a
-    thread pool for events, so without this every other call would hit
-    EGL_BAD_ACCESS).
-    """
+    # one model/data/env for everyone. rendering is pinned to a single worker
+    # thread because mujoco's egl context can only be current on one thread at
+    # a time, and gradio fires events off on a thread pool — without this we
+    # got EGL_BAD_ACCESS on every other call.
 
     def __init__(self):
         self.lock = threading.Lock()
@@ -337,7 +334,7 @@ _FRAME_LOCK = threading.Lock()
 
 
 def _remember_frame(frame):
-    small = frame[::3, ::3]
+    small = frame[::2, ::2]
     with _FRAME_LOCK:
         _LAST_FRAMES.append(small)
         if len(_LAST_FRAMES) > 1500:
@@ -427,124 +424,146 @@ def run_demo(bx, by, bz, azimuth, elevation, distance):
         traj_steps = getattr(config, 'TRAJECTORY_STEPS', 250)
         grab_dist = getattr(config, 'GRAB_DIST', 0.13)
 
-        try:
-            while state != STATE_DONE and step_count < max_steps:
-                if state == STATE_REACHING:
-                    step_count += 1
-                    ee = env.get_ee_pos()
-                    curr_dist = float(np.linalg.norm(np.array(ee) - target_pos))
+        while state != STATE_DONE and step_count < max_steps:
+            if state == STATE_REACHING:
+                step_count += 1
+                ee = env.get_ee_pos()
+                curr_dist = float(np.linalg.norm(np.array(ee) - target_pos))
 
-                    if not use_jt and jt_target is None and not jt_failed:
-                        current_j = np.array(env.get_joint_angles())
-                        joint_config, ik_ok = solve_ik(
-                            model, data, np.array(target_pos, dtype=float),
-                            env.get_ee_body_id(),
-                            env.get_joint_qposadrs(),
-                            env.get_joint_dofadrs(),
-                            q_init=None, damping=config.IK_DAMPING,
-                            max_iter=config.IK_MAX_ITER, tol=config.IK_TOLERANCE,
-                        )
-                        if ik_ok:
-                            jt_target = np.array([
-                                joint_config[adr] for adr in env.get_joint_qposadrs()
-                            ])
-                            jt_traj = np.linspace(current_j, jt_target, traj_steps)
-                            jt_step = 0
-                            use_jt = True
-                            env.set_joints_instant(current_j)
-                        else:
-                            use_jt = False
-                            jt_failed = True
-
-                    if use_jt and jt_traj is not None and jt_step < len(jt_traj):
-                        env.set_joints_instant(jt_traj[jt_step])
-                        env.step()
-                        jt_step += 1
+                if not use_jt and jt_target is None and not jt_failed:
+                    current_j = np.array(env.get_joint_angles())
+                    joint_config, ik_ok = solve_ik(
+                        model, data, np.array(target_pos, dtype=float),
+                        env.get_ee_body_id(),
+                        env.get_joint_qposadrs(),
+                        env.get_joint_dofadrs(),
+                        q_init=None, damping=config.IK_DAMPING,
+                        max_iter=config.IK_MAX_ITER, tol=config.IK_TOLERANCE,
+                    )
+                    if ik_ok:
+                        jt_target = np.array([
+                            joint_config[adr] for adr in env.get_joint_qposadrs()
+                        ])
+                        jt_traj = np.linspace(current_j, jt_target, traj_steps)
+                        jt_step = 0
+                        use_jt = True
+                        env.set_joints_instant(current_j)
                     else:
-                        speed = 0.012 if curr_dist > 0.2 else 0.006
-                        ik_reach(
-                            env, target_pos, speed_scale=speed,
-                            obstacle_pos=env.get_obstacle_positions(),
-                            avoid=bool(env.get_obstacle_positions()),
-                        )
-                        env.step()
+                        use_jt = False
+                        jt_failed = True
 
-                    ee = env.get_ee_pos()
-                    curr_dist = float(np.linalg.norm(np.array(ee) - target_pos))
-
-                    if curr_dist < grab_dist:
-                        env.set_finger_target(config.FINGER_CLOSED)
-                        env.grab_ball(current_target_name)
-                        state = STATE_GRABBED
-                        ee_now = env.get_ee_pos()
-                        lift_target = [ee_now[0] * 0.3, ee_now[1] * 0.3, 0.48]
-                        lift_traj = minimum_jerk_trajectory(
-                            np.array(ee_now), np.array(lift_target), lift_steps
-                        )
-                        lift_idx = 0
-
-                elif state == STATE_GRABBED:
+                if use_jt and jt_traj is not None and jt_step < len(jt_traj):
+                    env.set_joints_instant(jt_traj[jt_step])
                     env.step()
-                    if lift_traj is not None and lift_idx < len(lift_traj):
-                        wp = np.array(lift_traj[lift_idx], dtype=float)
-                        lift_idx += 1
-                        ik_reach(env, wp,
-                                 obstacle_pos=env.get_obstacle_positions(),
-                                 avoid=bool(env.get_obstacle_positions()),
-                                 grabbed_ball=current_target_name)
-                        env.set_finger_target(config.FINGER_CLOSED)
-                        env.step()
-                        state = STATE_LIFTING
+                    jt_step += 1
+                else:
+                    speed = 0.012 if curr_dist > 0.2 else 0.006
+                    ik_reach(
+                        env, target_pos, speed_scale=speed,
+                        obstacle_pos=env.get_obstacle_positions(),
+                        avoid=bool(env.get_obstacle_positions()),
+                    )
+                    env.step()
 
-                elif state == STATE_LIFTING:
+                ee = env.get_ee_pos()
+                curr_dist = float(np.linalg.norm(np.array(ee) - target_pos))
+
+                if curr_dist < grab_dist:
                     env.set_finger_target(config.FINGER_CLOSED)
-                    if lift_idx < len(lift_traj):
-                        wp = np.array(lift_traj[lift_idx], dtype=float)
-                        lift_idx += 1
-                        ik_reach(env, wp,
-                                 obstacle_pos=env.get_obstacle_positions(),
-                                 avoid=bool(env.get_obstacle_positions()),
-                                 grabbed_ball=current_target_name)
-                        env.step()
-                    else:
-                        swing_step = 0
-                        angles = env.get_joint_angles()
-                        swing_j1_center = angles[0]
-                        state = STATE_SWINGING
+                    env.grab_ball(current_target_name)
+                    state = STATE_GRABBED
+                    ee_now = env.get_ee_pos()
+                    lift_target = [ee_now[0] * 0.3, ee_now[1] * 0.3, 0.48]
+                    lift_traj = minimum_jerk_trajectory(
+                        np.array(ee_now), np.array(lift_target), lift_steps
+                    )
+                    lift_idx = 0
 
-                elif state == STATE_SWINGING:
-                    swing_step += 1
-                    angle = swing_j1_center + 0.25 * np.sin(swing_step * 0.03)
-                    env.set_joint_target(0, float(angle))
+            elif state == STATE_GRABBED:
+                env.step()
+                if lift_traj is not None and lift_idx < len(lift_traj):
+                    wp = np.array(lift_traj[lift_idx], dtype=float)
+                    lift_idx += 1
+                    ik_reach(env, wp,
+                             obstacle_pos=env.get_obstacle_positions(),
+                             avoid=bool(env.get_obstacle_positions()),
+                             grabbed_ball=current_target_name)
                     env.set_finger_target(config.FINGER_CLOSED)
                     env.step()
-                    env.sync_grabbed_ball(current_target_name)
-                    if swing_step >= swing_steps:
-                        env.release_ball(current_target_name)
-                        env.set_finger_target(config.FINGER_OPEN)
-                        state = STATE_DONE
+                    state = STATE_LIFTING
 
-                elif state == STATE_IDLE:
+            elif state == STATE_LIFTING:
+                env.set_finger_target(config.FINGER_CLOSED)
+                if lift_idx < len(lift_traj):
+                    wp = np.array(lift_traj[lift_idx], dtype=float)
+                    lift_idx += 1
+                    ik_reach(env, wp,
+                             obstacle_pos=env.get_obstacle_positions(),
+                             avoid=bool(env.get_obstacle_positions()),
+                             grabbed_ball=current_target_name)
                     env.step()
+                else:
+                    swing_step = 0
+                    angles = env.get_joint_angles()
+                    swing_j1_center = angles[0]
+                    state = STATE_SWINGING
 
-                env.freeze_balls(
-                    exclude=current_target_name if state in (STATE_GRABBED, STATE_LIFTING, STATE_SWINGING) else None
-                )
+            elif state == STATE_SWINGING:
+                swing_step += 1
+                angle = swing_j1_center + 0.25 * np.sin(swing_step * 0.03)
+                env.set_joint_target(0, float(angle))
+                env.set_finger_target(config.FINGER_CLOSED)
+                env.step()
+                env.sync_grabbed_ball(current_target_name)
+                if swing_step >= swing_steps:
+                    env.release_ball(current_target_name)
+                    env.set_finger_target(config.FINGER_OPEN)
+                    state = STATE_DONE
 
-                frame_counter += 1
-                if frame_counter % 2 == 0:
-                    frame = scene.render()
-                    if frame_counter % 4 == 0:
-                        _remember_frame(frame)
-                    msg = f"Step {step_count}/{max_steps} — {state}"
-                    yield [frame, f"{msg}  ({time.time() - t0:.0f}s)"]
+            elif state == STATE_IDLE:
+                env.step()
 
-            frame = scene.render()
-            _remember_frame(frame)
-            elapsed = time.time() - t0
-            yield [frame, f"Done — {step_count} steps, state={state} ({elapsed:.0f}s). Simulated live in your browser!"]
-        finally:
-            pass
+            env.freeze_balls(
+                exclude=current_target_name if state in (STATE_GRABBED, STATE_LIFTING, STATE_SWINGING) else None
+            )
+
+            frame_counter += 1
+            if frame_counter % 2 == 0:
+                frame = scene.render()
+                _remember_frame(frame)
+                msg = f"Step {step_count}/{max_steps} — {state}"
+                yield [frame, f"{msg}  ({time.time() - t0:.0f}s)"]
+
+        frame = scene.render()
+        _remember_frame(frame)
+        elapsed = time.time() - t0
+        with _FRAME_LOCK:
+            n_frames = len(_LAST_FRAMES)
+        yield [frame, f"Done — {step_count} steps, state={state} ({elapsed:.0f}s). Scrub or download it!"]
+
+
+def view_frame(i):
+    with _FRAME_LOCK:
+        n_frames = len(_LAST_FRAMES)
+    if n_frames == 0:
+        return _render_pose(), "No run yet — press Run reach & grab first, then scrub."
+    idx = max(0, min(int(i), n_frames - 1))
+    with _FRAME_LOCK:
+        img = _LAST_FRAMES[idx].copy()
+    return img, f"Frame {idx + 1}/{n_frames}"
+
+
+def download_gif():
+    import imageio
+    with _FRAME_LOCK:
+        frames = list(_LAST_FRAMES)
+    if not frames:
+        return None, "No run yet — run one first, then download."
+    out_path = os.path.join(
+        tempfile.gettempdir(), f"stardance_{int(time.time())}.gif"
+    )
+    imageio.mimsave(out_path, frames, fps=15)
+    return out_path, f"GIF ready ({len(frames)} frames)"
 
 
 def save_video():
@@ -552,12 +571,12 @@ def save_video():
     with _FRAME_LOCK:
         frames = list(_LAST_FRAMES)
     if not frames:
-        return "No run captured yet — press Run reach & grab first."
+        return None, "No run yet — run one first, then download."
     out_path = os.path.join(
         tempfile.gettempdir(), f"stardance_{int(time.time())}.mp4"
     )
     imageio.mimsave(out_path, frames, fps=20, codec="libx264")
-    return f"Saved: {out_path} ({len(frames)} frames)"
+    return out_path, f"MP4 ready ({len(frames)} frames)"
 
 
 with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
@@ -568,13 +587,19 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
             NASA On-Orbit Servicing Simulator — MuJoCo Robotic Arm
         </p>
         <p style="font-size:0.85rem; color:#aaa; max-width:600px; margin:0.3rem auto 0; line-height:1.4">
-            🎮 <b>Interactive demo (v2).</b> You can place the ball, pose the arm with the sliders,
-            spin the camera, and watch the arm reach &amp; grab <i>live</i> — no more pre-rendered GIF!
-            Rendering happens in the Hack Club container, so it may feel a bit low-fps. 😄
-            Want full control on your own machine? Git clone the repo and follow the README.
+            🎮 <b>Interactive demo (v2).</b> Drop a ball anywhere, twiddle the joints, spin the camera,
+            then hit <b>run</b> and watch the arm reach &amp; grab it freshly simulated — no replayed GIF.
+            It renders on a small Hack Club box, so the frame rate is kinda humble. 😄
+            Grabbing full control? Git clone the repo and check the README.
         </p>
     </div>
     """)
+
+    gr.Markdown("""**How to use** (every slider works with arrow keys too, no mouse needed):
+1. Place the ball — X/Y/Z sliders, a preset, or 🎲 random.
+2. Optional: pose the arm with the joint sliders, or spin the camera.
+3. Hit **Run reach & grab** and watch it go live.
+4. After it finishes, drag **Scrub** to replay any frame, then download GIF or MP4.""")
 
     with gr.Row():
         with gr.Column(scale=2):
@@ -591,6 +616,9 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
             with gr.Row():
                 run_btn = gr.Button("▶ Run reach & grab", variant="primary")
                 stop_btn = gr.Button("Stop")
+            scrub = gr.Slider(
+                0, 1500, value=0, step=1, label="Scrub — step through the last run",
+            )
             preset = gr.Dropdown(
                 choices=list(BALL_PRESETS.keys()), value="Center", label="Ball preset"
             )
@@ -613,7 +641,10 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
                 az_slider = gr.Slider(-180, 180, value=DEFAULT_CAM["azimuth"], step=1, label="Azimuth")
                 el_slider = gr.Slider(-90, 90, value=DEFAULT_CAM["elevation"], step=1, label="Elevation")
                 dist_slider = gr.Slider(1.0, 8.0, value=DEFAULT_CAM["distance"], step=0.1, label="Distance")
-            save_btn = gr.Button("💾 Save last run as video")
+            with gr.Row():
+                save_gif_btn = gr.Button("💾 Download GIF")
+                save_mp4_btn = gr.Button("⬇ MP4")
+            export = gr.File(label="Exported clip (fill after clicking GIF or MP4)")
 
     pose_inputs = [j1, j2, j3, j4, j5, j6, finger, bx, by, bz, az_slider, el_slider, dist_slider]
     run_inputs = [bx, by, bz, az_slider, el_slider, dist_slider]
@@ -630,7 +661,9 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
 
     preset.change(fn=apply_preset, inputs=preset, outputs=[bx, by, bz, sim])
     random_btn.click(fn=random_ball, outputs=[bx, by, bz, sim])
-    save_btn.click(fn=save_video, outputs=status)
+    scrub.change(fn=view_frame, inputs=scrub, outputs=[sim, status])
+    save_gif_btn.click(fn=download_gif, outputs=[export, status])
+    save_mp4_btn.click(fn=save_video, outputs=[export, status])
 
 
 import gradio.http_server

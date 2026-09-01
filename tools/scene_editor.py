@@ -6,10 +6,10 @@ import mujoco
 import gradio as gr
 
 SCENE_PATH = os.path.join(
-    os.path.dirname(__file__),
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "assets", "robots", "mephi_arm", "scene.xml"
 )
-PRESETS_DIR = os.path.join(os.path.dirname(__file__), "scene_presets")
+PRESETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scene_presets")
 
 BALL_NAMES = ["ball_primary", "ball_secondary"]
 OBSTACLE_NAMES = ["obstacle1", "obstacle2", "obstacle3"]

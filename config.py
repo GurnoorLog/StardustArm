@@ -44,7 +44,6 @@ PANEL_ARM_POS = [-1.5, 0.9, 1.5]
 PANEL_AI_POS = [-1.5, 2.6, 1.5]
 DEFAULT_STEP_SIZE = 0.05
 
-# --- New features ---
 IK_DAMPING = 0.01
 IK_MAX_ITER = 100
 IK_TOLERANCE = 0.001

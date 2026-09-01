@@ -82,7 +82,7 @@ class EnvPanels:
         )
         ws = ", ".join(f"J{j}" for j in jw[:4]) if jw else "NONE"
 
-        # Panel 1 — MISSION CONTROL
+        # MISSION CONTROL
         p1 = PANEL_MISSION_POS
         self._text("MISSION CONTROL", self._line_y(p1, -0.5), 1.6, [0.3, 1.0, 0.3])
         self._text(f"EP: {ep}  STEP: {step}", self._line_y(p1, 0), 1.15, [1, 1, 1])
@@ -90,7 +90,7 @@ class EnvPanels:
         self._text(f"CUMUL: {cumul:.0f}", self._line_y(p1, 2), 1.15, [1, 1, 1])
         self._text(f"STATUS: {status}", self._line_y(p1, 3), 1.15, [1, 1, 1])
 
-        # Panel 2 — ENVIRONMENT
+        # ENVIRONMENT
         p2 = PANEL_ENV_POS
         self._text("ENVIRONMENT", self._line_y(p2, -0.5), 1.6, [0.4, 0.6, 1.0])
         self._text(f"DEBRIS: {dc}  GRAV: {grav:.1f}", self._line_y(p2, 0), 1.15, [1, 1, 1])
@@ -98,7 +98,7 @@ class EnvPanels:
         self._text(f"TARGET: ({tx:.2f}, {ty:.2f}, {tz:.2f})", self._line_y(p2, 2), 1.15, [1, 1, 1])
         self._text(f"DIST: {dist:.3f} m", self._line_y(p2, 3), 1.15, [1, 1, 1])
 
-        # Panel 3 — ARM STATUS
+        # ARM STATUS
         p3 = PANEL_ARM_POS
         self._text("ARM STATUS", self._line_y(p3, -0.5), 1.6, [1.0, 0.4, 0.4])
         self._text(f"EE: ({ex:.2f}, {ey:.2f}, {ez:.2f})", self._line_y(p3, 0), 1.15, [1, 1, 1])
@@ -106,7 +106,7 @@ class EnvPanels:
         self._text(f"J4:{j4:.2f}  J5:{j5:.2f}  J6:{j6:.2f}", self._line_y(p3, 2), 1.15, [1, 1, 1])
         self._text(f"WARNINGS: {ws}", self._line_y(p3, 3), 1.15, [1, 1, 1])
 
-        # Panel 4 — AI BRAIN
+        # AI BRAIN
         p4 = PANEL_AI_POS
         self._text("AI BRAIN", self._line_y(p4, -0.5), 1.6, [0.8, 0.4, 1.0])
         self._text("MODEL: qwen2.5:3b", self._line_y(p4, 0), 1.15, [1, 1, 1])

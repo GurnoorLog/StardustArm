@@ -504,7 +504,7 @@ class MuJoCoEnv:
         test[j] += d
         return self.compute_ee_for_angles(test)
 
-    # --- Ball handling ---
+    # balls
     def get_ball_names(self):
         return sorted(self._ball_bodies.keys())
 
@@ -567,7 +567,7 @@ class MuJoCoEnv:
     def get_selected_target_name(self):
         return self._selected_target
 
-    # --- Obstacles ---
+    # obstacles
     def get_obstacle_positions(self):
         return [self.data.xpos[oid].copy() for oid in self._obstacle_ids]
 
@@ -600,7 +600,7 @@ class MuJoCoEnv:
         mujoco.mj_forward(self.model, self.data)
         return collision
 
-    # --- Trajectory ---
+    # waypoint trajectories
     def set_trajectory(self, waypoints):
         self._trajectory = waypoints
         self._traj_idx = 0
@@ -620,7 +620,7 @@ class MuJoCoEnv:
             return 1.0
         return self._traj_idx / max(len(self._trajectory), 1)
 
-    # --- Vision ---
+    # vision
     def get_vision_image(self):
         if self._vision_cam_id < 0 or self._vision_scene is None:
             return None
@@ -639,7 +639,7 @@ class MuJoCoEnv:
         mujoco.mjr_readPixels(rgb, depth, viewport, self._vision_ctx)
         return rgb.copy()
 
-    # --- Floating base ---
+    # floating-base thrusters (RCS)
     def apply_base_thrust(self, force_xyz):
         if self._base_dof_adr is None:
             return

@@ -1,11 +1,13 @@
 import os
+import sys
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
 
-from spaceship_env import SpaceshipArmEnv
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from environment.spaceship_env import SpaceshipArmEnv
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")

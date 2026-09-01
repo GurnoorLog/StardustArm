@@ -27,14 +27,24 @@ the AI learns entirely from trial and error using HER (hindsight experience repl
 ### files
 
 ```
-train_sac.py         →  trains the model, pops open a viewer
-spaceship_env.py     →  the gym environment (physics + reward)
-watch.py             →  replay a trained model
-config.py            →  constants n stuff
-assets/robots/mephi_arm/ →  urdf, stl meshes, scene xml
+app.py                 →  web demo (gradio, this is what runs on hack club)
+main.py                →  interactive local sim (glfw window, hotkeys)
+training/train_sac.py  →  trains the model, pops open a viewer
+training/train_ppo.py  →  same but with ppo instead of sac
+environment/spaceship_env.py →  the gym environment (physics + reward)
+tools/watch.py         →  replay a trained model
+tools/scene_editor.py  →  tweak the mujoco scene
+config.py              →  constants n stuff
+agent/                 →  IK, trajectory planning, vision, llm memory stuff
+arm/                   →  kinematics + robot arm wrappers
+learning/              →  episode store, failure analysis, knowledge builder
+telemetry/                 →  logging + telemetry export
+ui/                        →  hud + control panel
+assets/robots/mephi_arm/   →  urdf, stl meshes, scene xml
+notebooks/                 →  throwaway experiments
 ```
 
-### the env (spaceship_env.py)
+### the env (environment/spaceship_env.py)
 
 - **observation**: 23-dim (joint positions/velocities, gripper pos, finger state, prev action) + 3-dim goal (target pos) + 3-dim achieved goal (where gripper actually is)
 - **action**: 7 continuous values [-1, 1] — 6 arm joints + finger
@@ -42,11 +52,11 @@ assets/robots/mephi_arm/ →  urdf, stl meshes, scene xml
 - **done**: when gripper is within 15cm of target OR 5000 steps
 - **reset**: random target position in front of arm, random joint positions
 
-### training (train_sac.py)
+### training (training/train_sac.py)
 
 SAC with auto entropy tuning + HER replay buffer with `future` goal sampling (4 per transition). checkpoints saved every 50k steps to `training_runs/<name>/`. viewer pops up so you can watch it learn in real-time which is honestly pretty sick.
 
-### viewer (watch.py)
+### viewer (tools/watch.py)
 
 lists all training runs, pick one, pick a checkpoint, it loops episodes forever. esc to exit.
 
@@ -61,7 +71,7 @@ pip install mujoco gymnasium stable-baselines3 sb3-contrib tensorboard glfw PyOp
 ## training
 
 ```bash
-python train_sac.py --run my_cool_run --timesteps 500000
+python training/train_sac.py --run my_cool_run --timesteps 500000
 ```
 
 **viewer controls:**
@@ -73,7 +83,7 @@ python train_sac.py --run my_cool_run --timesteps 500000
 ## watch a trained model
 
 ```bash
-python watch.py
+python tools/watch.py
 ```
 
 ## tensorboard
