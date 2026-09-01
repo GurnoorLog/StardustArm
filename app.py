@@ -288,6 +288,11 @@ class Scene:
         self.model = mujoco.MjModel.from_xml_path(SCENE_PATH)
         self.data = mujoco.MjData(self.model)
         self.env = SimEnv(self.model, self.data)
+        # blue (secondary) ball is retired — hide its geoms instead of touching the scene
+        for i in range(self.model.ngeom):
+            gname = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, i)
+            if gname and gname.startswith("ball_secondary"):
+                self.model.geom_rgba[i][3] = 0.0
         self.camera = mujoco.MjvCamera()
         self.camera.distance = DEFAULT_CAM["distance"]
         self.camera.azimuth = DEFAULT_CAM["azimuth"]
@@ -398,7 +403,6 @@ def run_demo(bx, by, bz, azimuth, elevation, distance):
         for ball_name in env.get_ball_names():
             env.release_ball(ball_name)
         env.set_ball_pos([float(bx), float(by), float(bz)], "ball_primary")
-        env.set_ball_pos([-0.1, 0.2, 0.10], "ball_secondary")
 
         target_names = list(env.get_ball_names())
         current_target_name = target_names[0]
@@ -532,25 +536,42 @@ def run_demo(bx, by, bz, azimuth, elevation, distance):
                 frame = scene.render()
                 _remember_frame(frame)
                 msg = f"Step {step_count}/{max_steps} — {state}"
-                yield [frame, f"{msg}  ({time.time() - t0:.0f}s)"]
+                yield [frame, f"{msg}  ({time.time() - t0:.0f}s)", False, 0]
 
-        frame = scene.render()
-        _remember_frame(frame)
-        elapsed = time.time() - t0
-        with _FRAME_LOCK:
-            n_frames = len(_LAST_FRAMES)
-        yield [frame, f"Done — {step_count} steps, state={state} ({elapsed:.0f}s). Scrub or download it!"]
+            frame = scene.render()
+            _remember_frame(frame)
+            elapsed = time.time() - t0
+            with _FRAME_LOCK:
+                n_frames = len(_LAST_FRAMES)
+            yield [frame, f"Done — {step_count} steps, state={state} ({elapsed:.0f}s).", True, 0]
 
 
 def view_frame(i):
     with _FRAME_LOCK:
         n_frames = len(_LAST_FRAMES)
     if n_frames == 0:
-        return _render_pose(), "No run yet — press Run reach & grab first, then scrub."
+        return _render_pose(), "No run yet — press Run reach & grab first.", False
     idx = max(0, min(int(i), n_frames - 1))
     with _FRAME_LOCK:
         img = _LAST_FRAMES[idx].copy()
-    return img, f"Frame {idx + 1}/{n_frames}"
+    return img, f"Frame {idx + 1}/{n_frames} (scrubbed)", False
+
+
+def autoplay(playing, idx):
+    with _FRAME_LOCK:
+        n_frames = len(_LAST_FRAMES)
+    if not playing:
+        return gr.skip(), gr.skip(), gr.skip(), gr.skip()
+    if n_frames == 0:
+        return gr.skip(), "No run yet — press Run reach & grab first.", False, 0
+    i = idx % n_frames
+    with _FRAME_LOCK:
+        img = _LAST_FRAMES[i].copy()
+    return img, f"Replay — frame {i + 1}/{n_frames}", True, (i + 1) % n_frames
+
+
+def play_pause(playing):
+    return not playing
 
 
 def download_gif():
@@ -599,7 +620,7 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
 1. Place the ball — X/Y/Z sliders, a preset, or 🎲 random.
 2. Optional: pose the arm with the joint sliders, or spin the camera.
 3. Hit **Run reach & grab** and watch it go live.
-4. After it finishes, drag **Scrub** to replay any frame, then download GIF or MP4.""")
+4. When it finishes, the replay **auto-plays like a video** — use ⏯/Pause, or drag **Scrub** for any frame, then download GIF or MP4.""")
 
     with gr.Row():
         with gr.Column(scale=2):
@@ -616,6 +637,13 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
             with gr.Row():
                 run_btn = gr.Button("▶ Run reach & grab", variant="primary")
                 stop_btn = gr.Button("Stop")
+            with gr.Row():
+                play_btn = gr.Button("⏯ Play / Pause replay", variant="secondary")
+                export_gif_btn = gr.Button("💾 Download GIF")
+                export_mp4_btn = gr.Button("⬇ MP4")
+            export = gr.File(label="Exported clip (fills after clicking GIF or MP4)")
+            play_state = gr.State(False)
+            idx_state = gr.State(0)
             scrub = gr.Slider(
                 0, 1500, value=0, step=1, label="Scrub — step through the last run",
             )
@@ -641,16 +669,15 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
                 az_slider = gr.Slider(-180, 180, value=DEFAULT_CAM["azimuth"], step=1, label="Azimuth")
                 el_slider = gr.Slider(-90, 90, value=DEFAULT_CAM["elevation"], step=1, label="Elevation")
                 dist_slider = gr.Slider(1.0, 8.0, value=DEFAULT_CAM["distance"], step=0.1, label="Distance")
-            with gr.Row():
-                save_gif_btn = gr.Button("💾 Download GIF")
-                save_mp4_btn = gr.Button("⬇ MP4")
-            export = gr.File(label="Exported clip (fill after clicking GIF or MP4)")
 
     pose_inputs = [j1, j2, j3, j4, j5, j6, finger, bx, by, bz, az_slider, el_slider, dist_slider]
     run_inputs = [bx, by, bz, az_slider, el_slider, dist_slider]
 
     demo.load(fn=initial_frame, outputs=sim)
-    run_ev = run_btn.click(fn=run_demo, inputs=run_inputs, outputs=[sim, status])
+    run_ev = run_btn.click(
+        fn=run_demo, inputs=run_inputs,
+        outputs=[sim, status, play_state, idx_state],
+    )
     stop_btn.click(cancels=[run_ev])
 
     for ctrl in [j1, j2, j3, j4, j5, j6]:
@@ -661,9 +688,16 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
 
     preset.change(fn=apply_preset, inputs=preset, outputs=[bx, by, bz, sim])
     random_btn.click(fn=random_ball, outputs=[bx, by, bz, sim])
-    scrub.change(fn=view_frame, inputs=scrub, outputs=[sim, status])
-    save_gif_btn.click(fn=download_gif, outputs=[export, status])
-    save_mp4_btn.click(fn=save_video, outputs=[export, status])
+    scrub.change(fn=view_frame, inputs=scrub, outputs=[sim, status, play_state])
+    export_gif_btn.click(fn=download_gif, outputs=[export, status])
+    export_mp4_btn.click(fn=save_video, outputs=[export, status])
+    play_btn.click(fn=play_pause, inputs=play_state, outputs=play_state)
+    replay_timer = gr.Timer(0.06)
+    replay_timer.tick(
+        fn=autoplay,
+        inputs=[play_state, idx_state],
+        outputs=[sim, status, play_state, idx_state],
+    )
 
 
 import gradio.http_server
