@@ -611,7 +611,7 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
     for ctrl in [bx, by, bz, az_slider, el_slider, dist_slider]:
         ctrl.change(fn=pose_render, inputs=pose_inputs, outputs=sim)
 
-    preset.change(fn=apply_preset, outputs=[bx, by, bz, sim])
+    preset.change(fn=apply_preset, inputs=preset, outputs=[bx, by, bz, sim])
     random_btn.click(fn=random_ball, outputs=[bx, by, bz, sim])
     save_btn.click(fn=save_video, outputs=status)
 
