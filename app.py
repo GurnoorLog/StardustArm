@@ -538,12 +538,16 @@ def run_demo(bx, by, bz, azimuth, elevation, distance):
                 msg = f"Step {step_count}/{max_steps} — {state}"
                 yield [frame, f"{msg}  ({time.time() - t0:.0f}s)", False, 0]
 
-            frame = scene.render()
-            _remember_frame(frame)
-            elapsed = time.time() - t0
-            with _FRAME_LOCK:
-                n_frames = len(_LAST_FRAMES)
-            yield [frame, f"Done — {step_count} steps, state={state} ({elapsed:.0f}s).", True, 0]
+        frame = scene.render()
+        _remember_frame(frame)
+        elapsed = time.time() - t0
+        with _FRAME_LOCK:
+            n_frames = len(_LAST_FRAMES)
+        if state == STATE_DONE:
+            note = f"Done — {step_count} steps, state={state} ({elapsed:.0f}s)."
+        else:
+            note = f"Stopped at max steps — {step_count} steps, state={state} ({elapsed:.0f}s)."
+        yield [frame, note, True, 0]
 
 
 def view_frame(i):
