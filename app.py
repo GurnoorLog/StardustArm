@@ -547,6 +547,8 @@ def run_demo(bx, by, bz, azimuth, elevation, distance):
 
 
 def view_frame(i):
+    if i is None:
+        i = 0
     with _FRAME_LOCK:
         n_frames = len(_LAST_FRAMES)
     if n_frames == 0:
