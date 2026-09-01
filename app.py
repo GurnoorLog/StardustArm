@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import threading
+import concurrent.futures
 os.environ["MUJOCO_GL"] = "egl"
 import gradio as gr
 import numpy as np
@@ -277,19 +278,25 @@ def ik_reach(env, target_pos, speed_scale=0.008, obstacle_pos=None, avoid=False,
 
 
 class Scene:
-    """Shared simulation state: one model/data/env/renderer, guarded by a lock."""
+    """Shared simulation state: one model/data/env, guarded by a lock.
+
+    Rendering is pinned to a single worker thread because MuJoCo's EGL
+    context can only be current on one thread at a time (Gradio uses a
+    thread pool for events, so without this every other call would hit
+    EGL_BAD_ACCESS).
+    """
 
     def __init__(self):
         self.lock = threading.Lock()
         self.model = mujoco.MjModel.from_xml_path(SCENE_PATH)
         self.data = mujoco.MjData(self.model)
         self.env = SimEnv(self.model, self.data)
-        self.renderer = mujoco.Renderer(self.model, height=360, width=480)
         self.camera = mujoco.MjvCamera()
         self.camera.distance = DEFAULT_CAM["distance"]
         self.camera.azimuth = DEFAULT_CAM["azimuth"]
         self.camera.elevation = DEFAULT_CAM["elevation"]
         self.camera.lookat[:] = [0.0, 0.0, 0.3]
+        self._renderer = None
         mujoco.mj_forward(self.model, self.data)
 
     def apply_camera(self, azimuth, elevation, distance):
@@ -298,8 +305,18 @@ class Scene:
         self.camera.distance = float(distance)
 
     def render(self):
-        self.renderer.update_scene(self.data, self.camera)
-        return self.renderer.render().copy()
+        def _do():
+            if self._renderer is None:
+                self._renderer = mujoco.Renderer(self.model, height=360, width=480)
+            self._renderer.update_scene(self.data, self.camera)
+            return self._renderer.render().copy()
+
+        return _RENDER_EXECUTOR.submit(_do).result()
+
+
+_RENDER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="renderer"
+)
 
 
 _SCENE = None
