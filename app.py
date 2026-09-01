@@ -563,7 +563,7 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
         with gr.Column(scale=2):
             sim = gr.Image(
                 label="Live Simulation", type="numpy", interactive=False,
-                height=440, show_download_button=False, show_label=False,
+                height=440, show_label=False,
             )
         with gr.Column(scale=1):
             status = gr.Textbox(
