@@ -607,7 +607,7 @@ def stop_run(running):
 
 
 def toggle_controls(running):
-    val = {"interactive": not running}
+    val = gr.update(interactive=not running)
     return [val] * 15
 
 
