@@ -336,6 +336,8 @@ def _get_scene():
 
 _LAST_FRAMES = []
 _FRAME_LOCK = threading.Lock()
+_RUNNING = False
+_RUNNING_LOCK = threading.Lock()
 
 
 def _remember_frame(frame):
@@ -344,6 +346,17 @@ def _remember_frame(frame):
         _LAST_FRAMES.append(small)
         if len(_LAST_FRAMES) > 1500:
             del _LAST_FRAMES[: len(_LAST_FRAMES) - 1500]
+
+
+def _set_running(v):
+    global _RUNNING
+    with _RUNNING_LOCK:
+        _RUNNING = bool(v)
+
+
+def _is_running():
+    with _RUNNING_LOCK:
+        return _RUNNING
 
 
 def _render_pose(ball=(0.0, 0.3, 0.10), joints=None, finger=config.FINGER_OPEN,
@@ -367,6 +380,8 @@ def initial_frame():
 
 
 def pose_render(j1, j2, j3, j4, j5, j6, finger, bx, by, bz, azimuth, elevation, distance):
+    if _is_running():
+        return gr.skip()
     return _render_pose(
         ball=(bx, by, bz),
         joints=[j1, j2, j3, j4, j5, j6],
@@ -376,12 +391,16 @@ def pose_render(j1, j2, j3, j4, j5, j6, finger, bx, by, bz, azimuth, elevation, 
 
 
 def apply_preset(preset):
+    if _is_running():
+        return gr.skip(), gr.skip(), gr.skip(), gr.skip()
     ball = BALL_PRESETS.get(preset, BALL_PRESETS["Center"])
     frame = _render_pose(ball=ball)
     return ball[0], ball[1], ball[2], frame
 
 
 def random_ball():
+    if _is_running():
+        return gr.skip(), gr.skip(), gr.skip(), gr.skip()
     rng = np.random.default_rng()
     x = float(rng.uniform(-0.35, 0.35))
     y = float(rng.uniform(0.20, 0.70))
@@ -391,8 +410,9 @@ def random_ball():
     return x, y, z, frame
 
 
-def run_demo(bx, by, bz, azimuth, elevation, distance):
+def run_demo(bx, by, bz, azimuth, elevation, distance, running):
     scene = _get_scene()
+    _set_running(True)
     with scene.lock:
         scene.apply_camera(azimuth, elevation, distance)
         model, data, env = scene.model, scene.data, scene.env
@@ -536,7 +556,7 @@ def run_demo(bx, by, bz, azimuth, elevation, distance):
                 frame = scene.render()
                 _remember_frame(frame)
                 msg = f"Step {step_count}/{max_steps} — {state}"
-                yield [frame, f"{msg}  ({time.time() - t0:.0f}s)", False, 0]
+                yield [frame, f"{msg}  ({time.time() - t0:.0f}s)", False, 0, True]
 
         frame = scene.render()
         _remember_frame(frame)
@@ -547,7 +567,8 @@ def run_demo(bx, by, bz, azimuth, elevation, distance):
             note = f"Done — {step_count} steps, state={state} ({elapsed:.0f}s)."
         else:
             note = f"Stopped at max steps — {step_count} steps, state={state} ({elapsed:.0f}s)."
-        yield [frame, note, True, 0]
+        _set_running(False)
+        yield [frame, note, True, 0, False]
 
 
 def view_frame(i):
@@ -578,6 +599,16 @@ def autoplay(playing, idx):
 
 def play_pause(playing):
     return not playing
+
+
+def stop_run(running):
+    _set_running(False)
+    return False, False, "Stopped — replay paused."
+
+
+def toggle_controls(running):
+    val = {"interactive": not running}
+    return [val] * 15
 
 
 def download_gif():
@@ -650,6 +681,7 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
             export = gr.File(label="Exported clip (fills after clicking GIF or MP4)")
             play_state = gr.State(False)
             idx_state = gr.State(0)
+            running = gr.State(False)
             scrub = gr.Slider(
                 0, 1500, value=0, step=1, label="Scrub — step through the last run",
             )
@@ -678,13 +710,22 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
 
     pose_inputs = [j1, j2, j3, j4, j5, j6, finger, bx, by, bz, az_slider, el_slider, dist_slider]
     run_inputs = [bx, by, bz, az_slider, el_slider, dist_slider]
+    locked_controls = [
+        bx, by, bz, preset, random_btn,
+        j1, j2, j3, j4, j5, j6,
+        finger, az_slider, el_slider, dist_slider,
+    ]
 
     demo.load(fn=initial_frame, outputs=sim)
     run_ev = run_btn.click(
-        fn=run_demo, inputs=run_inputs,
-        outputs=[sim, status, play_state, idx_state],
+        fn=run_demo, inputs=[*run_inputs, running],
+        outputs=[sim, status, play_state, idx_state, running],
     )
-    stop_btn.click(cancels=[run_ev])
+    stop_btn.click(
+        fn=stop_run, inputs=running,
+        outputs=[running, play_state, status],
+        cancels=[run_ev],
+    )
 
     for ctrl in [j1, j2, j3, j4, j5, j6]:
         ctrl.input(fn=pose_render, inputs=pose_inputs, outputs=sim)
@@ -692,6 +733,7 @@ with gr.Blocks(title="Stardance — NASA On-Orbit Servicing Simulator") as demo:
     for ctrl in [bx, by, bz, az_slider, el_slider, dist_slider]:
         ctrl.change(fn=pose_render, inputs=pose_inputs, outputs=sim)
 
+    running.change(fn=toggle_controls, inputs=running, outputs=locked_controls)
     preset.change(fn=apply_preset, inputs=preset, outputs=[bx, by, bz, sim])
     random_btn.click(fn=random_ball, outputs=[bx, by, bz, sim])
     scrub.change(fn=view_frame, inputs=scrub, outputs=[sim, status, play_state])
